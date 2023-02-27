@@ -14,7 +14,6 @@ Our topic is Covid-19 Data Visualization. We have included Map, Line Chart and P
 * HTML5
 * CSS
 * Leaflets
-* eCharts
 
 
 ## Webpage Brief View 

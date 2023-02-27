@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Leaflet sample</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+          integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+          crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+            integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+            crossorigin=""></script>
+
+</head>
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        background: antiquewhite;
+    }
+
+    #content {
+        margin: 0 auto;
+        text-align: center;
+    }
+
+    #map, #line, #pie {
+        margin: 0 auto;
+        background: aliceblue;
+        border-radius: 15px;
+    }
+
+    h1 {
+        background: #ffc17d;
+        padding: 20px;
+        margin: 0;
+    }
+</style>
+<body>
+<div id="content">
+    <h1>Big data of COVID-19</h1>
+
+    <div id="map" style="width: 900px; height: 580px"></div>
+
+    <form action="">
+        Select countries and regions：
+        <select id="sel" onchange="selectCity(this)">
+
+        </select>
+    </form>
+
+
+    <form action="">
+        Just choose the country：
+        <select id="selCountry" onchange="selectCountry(this)">
+
+        </select>
+    </form>
+    <h2 id="subtitle">The current region:</h2>
+    <h2>Line Graph</h2>
+    <div id="line" style="width: 900px; height: 580px"></div>
+    <h2>Pie Graph</h2>
+    <div id="pie" style="width: 900px; height: 580px"></div>
+</div>
+
+
+</body>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.1/dist/echarts.min.js"></script>
+<script src="http://apps.bdimg.com/libs/jquery/2.1.4/jquery.js"></script>
+<script src="../static/js/line.js"></script>
+<script src="../static/js/pie.js"></script>
+<!--<script src="../static/js/map.js"></script>-->
+<script>
+
+
+    var mapOptions = {
+        center: [39.385044, 114.486671],
+        zoom: 4
+    }
+
+    var map = new L.map('map', mapOptions);
+    map.locate({
+        setView: true,
+        maxZoom: 16
+    });
+
+    var tiles = L.tileLayer(
+        'https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw', {
+            maxZoom: 18,
+            attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, ' +
+                'Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
+            id: 'mapbox/streets-v11',
+            tileSize: 512,
+            zoomOffset: -1
+        }).addTo(map);
+
+
+    // var marker = L.marker([51.5, -0.09]).addTo(map)
+    //     .bindPopup('<b>Hello world!</b><br />I am a popup.').openPopup();
+
+
+    var circle = L.circle([51.508, -0.11], {
+        color: 'red',
+        fillColor: '#f03',
+        fillOpacity: 0.5,
+        radius: 500
+    }).addTo(map).bindPopup('I am a circle.');
+
+    function createCity(province, country, lat, long, numbervalue) {
+        if (numbervalue === null) {
+            numbervalue = 500;
+        } else {
+            numbervalue = 500 + numbervalue / 500
+        }
+
+        console.log(numbervalue)
+        var circle = L.circle([lat, long], {
+            color: 'red',
+            fillColor: '#f03',
+            fillOpacity: 0.5,
+            radius: numbervalue,
+        }).addTo(map)
+        circle.country = country;
+        circle.province = province;
+
+
+        if (province !== "0") {
+            circle.bindPopup(`You clicked the map at [${country}> ${province}].`);
+        } else {
+            circle.bindPopup(`You clicked the map at [${country}].`);
+        }
+
+        circle.on('click', function (e) {
+
+            // console.log(this.province, this.country)
+            getLineData(this.country, this.province)
+            c = this.country;
+            p = this.province;
+            if (this.country === '0') {
+                var c = ""
+            }
+            if (this.province === '0') {
+                var p = ""
+            }
+            document.getElementById('subtitle').innerHTML = "The current region: " + c + " " + p;
+        })
+
+        // var marker = L.marker([lat, long]).addTo(map)
+        //
+        // marker.country = country;
+        // marker.province = province;
+        //
+        //
+        // if (province !== "0") {
+        //     marker.bindPopup(`You clicked the map at [${country} ${province}].`);
+        // } else {
+        //     marker.bindPopup(`You clicked the map at [${country}].`);
+        // }
+        //
+        // marker.on('click', function (e) {
+        //
+        //     // console.log(this.province, this.country)
+        //     getLineData(this.country, this.province)
+        //     c = this.country;
+        //     p = this.province;
+        //     if (this.country === '0') {
+        //         var c = ""
+        //     }
+        //     if (this.province === '0') {
+        //         var p = ""
+        //     }
+        //     document.getElementById('subtitle').innerHTML = "The current region: " + c + " " + p;
+        // })
+    }
+
+    function selectCity(value) {
+        var selectedOption = value.options[value.selectedIndex];
+        console.log(selectedOption.value);
+        $.ajax({
+            url: "get_data/id",
+            type: "POST",
+            dataType: "json",
+            data: JSON.stringify({
+                'id': selectedOption.value,
+            }),
+            success: function (data) {
+                getLineData(data['country'], data['province']);
+                var c = data['country'];
+                var p = data['province'];
+                if (c === '0') {
+                    c = ""
+                }
+                if (p === '0') {
+                    p = ""
+                }
+                document.getElementById('subtitle').innerHTML = "The current region:" + c + " " + p;
+            }
+        })
+    }
+
+    function selectCountry(value) {
+        var selectedOption = value.options[value.selectedIndex];
+        console.log(selectedOption.value);
+
+        // getLineData(data['country'], data['province']);
+        var c = selectedOption.value;
+        getSumLineData(c);
+        document.getElementById('subtitle').innerHTML = "The current Country:" + c;
+    }
+
+    function onMapClick(e) {
+        popup
+            .setLatLng(e.latlng)
+            .setContent('You clicked the map at ' + e.latlng.toString())
+            .openOn(map);
+    }
+
+    map.on('click', onMapClick);
+
+
+    function onLocationFound(e) {
+        L.marker(e.latlng, {
+            draggable: true
+        })
+            .addTo(map)
+            .bindPopup("Hi").openPopup()
+            .on('dragend', function (event) {
+                var marker = event.target;
+                var latlng = marker.getLatLng();
+                position.push(latlng);
+            });
+
+        var radius = e.accuracy / 2;
+
+        L.circle(e.latlng, radius).addTo(map);
+    }
+
+    function onLocationError() {
+        L.marker(map.getCenter(), {
+            draggable: true
+        })
+            .addTo(map)
+            .bindPopup("<b>Please manually select your location on the map!</b>").openPopup()
+            .on('dragend', function (event) {
+                var marker = event.target;
+                var latlng = marker.getLatLng();
+                position.push(latlng);
+            });
+    }
+
+    // map.on('locationerror', onLocationError);
+    // map.on('locationfound', onLocationFound);
+
+    let keys = [];
+    let confirmeds = [];
+    let deaths = [];
+    let recovereds = [];
+
+
+    $.ajax({
+        url: "get_data/nn",
+        type: "POST",
+        dataType: "json",
+        success: function (data) {
+            // console.log(data)
+            sel = document.getElementById('sel')
+            selCountry = document.getElementById('selCountry')
+            let countrys = []
+            for (var val in data) {
+
+                if (data[val]["lat"] !== null) {
+                    var numbervalue = data[val]["data"].split(',').slice(-1)
+                    // console.log(data[val]["data"].split(',')[-1])
+                    createCity(data[val]["province"], data[val]["country"], data[val]["lat"], data[val]["long"], numbervalue);
+                    if (data[val]["province"] === '0') data[val]["province"] = '';
+                    if (data[val]["country"] === '0') data[val]["country"] = '';
+                    var opt = new Option(data[val]["province"] + " " + data[val]["country"], data[val]["id"])
+                    sel.options.add(opt);
+                    if (!countrys.includes(data[val]["country"])) {
+                        countrys.push(data[val]["country"])
+                        var optCountry = new Option(data[val]["country"], data[val]["country"])
+                        selCountry.options.add(optCountry);
+                    }
+
+
+                }
+            }
+        }
+    })
+
+    // province
+    function getLineData(country, province) {
+
+        $.ajax({
+            url: "get_data/confirm",
+            type: "POST",
+            dataType: "json",
+            data: JSON.stringify({
+                'country': country,
+                'province': province,
+            }),
+            success: function (data) {
+                // console.log(data)
+                confirmeds = data['data'].split(',')
+
+                //next step
+                $.ajax({
+                    url: "get_data/deaths",
+                    type: "POST",
+                    dataType: "json",
+                    data: JSON.stringify({
+                        'country': country,
+                        'province': province,
+                    }),
+                    success: function (data) {
+                        // console.log(data)
+                        deaths = data['data'].split(',');
+                        // next step
+                        $.ajax({
+                            url: "get_data/recovered",
+                            type: "POST",
+                            dataType: "json",
+                            data: JSON.stringify({
+                                'country': country,
+                                'province': province,
+                            }),
+                            success: function (data) {
+                                // console.log(data)
+                                recovereds = data['data'].split(',');
+                                $.ajax({
+                                    url: "get_data/information",
+                                    type: "POST",
+                                    dataType: "json",
+                                    data: JSON.stringify({
+                                        'country': country,
+                                        'province': province,
+                                    }),
+                                    success: function (data) {
+                                        // console.log(data)
+                                        keys = data['value'].split(',')
+                                        // wait for data to upload in order to process
+                                        $.ajax({
+                                            url: "get_data/pie",
+                                            type: "POST",
+                                            dataType: "json",
+                                            data: JSON.stringify({
+                                                'country': country,
+                                                'province': province,
+                                            }),
+                                            success: function (data) {
+                                                setPie(data);
+                                                setTimeout(() => {
+                                                    createLine(keys, confirmeds, deaths, recovereds);
+                                                }, 500)
+                                            }
+                                        })
+                                    }
+                                })
+                            }
+                        })
+                    }
+                })
+            }
+        })
+    }
+
+    // country
+    function getSumLineData(country) {
+
+        $.ajax({
+            url: "get_data/sum/confirm",
+            type: "POST",
+            dataType: "json",
+            data: JSON.stringify({
+                'country': country,
+            }),
+            success: function (data) {
+                // console.log(data)
+                confirmeds = data['data'].split(',')
+
+                //next step
+                $.ajax({
+                    url: "get_data/sum/deaths",
+                    type: "POST",
+                    dataType: "json",
+                    data: JSON.stringify({
+                        'country': country,
+
+                    }),
+                    success: function (data) {
+
+                        deaths = data['data'].split(',');
+                        // next step
+                        $.ajax({
+                            url: "get_data/sum/recovered",
+                            type: "POST",
+                            dataType: "json",
+                            data: JSON.stringify({
+                                'country': country,
+                            }),
+                            success: function (data) {
+                                // console.log(data)
+                                recovereds = data['data'].split(',');
+                                $.ajax({
+                                    url: "get_data/information",
+                                    type: "POST",
+                                    dataType: "json",
+                                    data: JSON.stringify({
+                                        'country': country,
+                                    }),
+                                    success: function (data) {
+                                        // console.log(data)
+                                        keys = data['value'].split(',')
+                                        // wait for data to upload in order to process
+                                        $.ajax({
+                                            url: "get_data/sum/pie",
+                                            type: "POST",
+                                            dataType: "json",
+                                            data: JSON.stringify({
+                                                'country': country,
+                                            }),
+                                            success: function (data) {
+                                                setPie(data);
+                                                setTimeout(() => {
+                                                    createLine(keys, confirmeds, deaths, recovereds);
+                                                }, 500)
+                                            }
+                                        })
+                                    }
+                                })
+                            }
+                        })
+                    }
+                })
+            }
+        })
+    }
+
+</script>
+</html>
